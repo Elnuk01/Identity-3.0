@@ -35,6 +35,7 @@ export function saveRegistration(regData: Omit<Registration, 'id' | 'timestamp'>
   
   const newRegistration: Registration = {
     ...regData,
+    emailAddress: regData.email,
     id,
     timestamp: new Date().toISOString()
   };
@@ -62,7 +63,7 @@ export const GOOGLE_APPS_SCRIPT_CODE = `// =====================================
 // 5. Change "Execute as" to: "Me"
 // 6. Change "Who has access" to: "Anyone"
 // 7. Click "Deploy" and Authorize access
-// 8. Copy the generated "Web App URL" and paste it in the Admin settings!
+// NOTE: Make sure to authorize under your Gmail account when prompted so it can send registration receipts!
 
 function doPost(e) {
   try {
@@ -70,9 +71,16 @@ function doPost(e) {
     var data = JSON.parse(rawData);
     
     var ss = SpreadsheetApp.getActiveSpreadsheet();
+    if (!ss) {
+      return ContentService.createTextOutput(JSON.stringify({ 
+        "success": false, 
+        "error": "Could not find active spreadsheet. Make sure you opened Apps Script from inside your Google Sheet (Extensions > Apps Script)." 
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+    
     var sheet = ss.getActiveSheet();
     
-    // Auto-create header row if sheet is bare
+    // Auto-create header row if sheet is bare or completely empty
     if (sheet.getLastRow() === 0) {
       sheet.appendRow([
         "Pass ID", 
@@ -91,65 +99,133 @@ function doPost(e) {
       listRange.setBackground("#f3f4f6");
     }
     
-    // Append registration record row
-    sheet.appendRow([
-      data.id || "N/A",
-      data.fullName || "N/A",
-      data.email || "N/A",
-      data.phoneNumber || "N/A",
-      data.churchName || "Not Specified",
-      data.ageRange || "N/A",
-      data.sex || "N/A",
-      (data.volunteerOptions && data.volunteerOptions.length > 0) 
+    // Read current headers on Row 1 to map data to correct columns dynamically
+    var lastColumn = Math.max(sheet.getLastColumn(), 1);
+    var headers = sheet.getRange(1, 1, 1, lastColumn).getValues()[0];
+    
+    // Build a lowercase, whitespace-stripped mapping of header text to column index (1-based)
+    var headerMap = {};
+    for (var i = 0; i < headers.length; i++) {
+      var cleanHeader = String(headers[i]).toLowerCase().replace(/[^a-z0-9]/g, "");
+      headerMap[cleanHeader] = i + 1;
+    }
+    
+    // Map logical fields to valid header aliases
+    var keyMappings = {
+      id: ["passid", "id", "registrationid", "uuid", "passnumber", "ticketid"],
+      fullName: ["fullname", "name", "fullnames", "registrantname", "studentname"],
+      email: ["emailaddress", "email", "emailid", "mail", "mailaddress", "address"],
+      phoneNumber: ["phonenumber", "phone", "phoneno", "contact", "contactnumber", "mobile"],
+      churchName: ["churchname", "church", "churchassembly", "assembly"],
+      ageRange: ["agerange", "age", "agegroup", "group"],
+      sex: ["sex", "gender", "maleorfemale"],
+      volunteerOptions: ["volunteerstatus", "volunteerchoice", "volunteer", "role", "volunteering"],
+      timestamp: ["registrationtimestamp", "timestamp", "date", "time", "submittedat"]
+    };
+    
+    // Pre-fill a row array with empty strings
+    var rowData = new Array(lastColumn);
+    for (var c = 0; c < lastColumn; c++) {
+      rowData[c] = "";
+    }
+    
+    // Formatted data payload
+    var formattedData = {
+      id: data.id || "N/A",
+      fullName: data.fullName || "N/A",
+      email: data.email || data.emailAddress || "N/A",
+      phoneNumber: data.phoneNumber || "N/A",
+      churchName: data.churchName || "Not Specified",
+      ageRange: data.ageRange || "N/A",
+      sex: data.sex || "N/A",
+      volunteerOptions: (data.volunteerOptions && data.volunteerOptions.length > 0) 
         ? data.volunteerOptions.join(", ") 
         : "Attendee",
-      data.timestamp || new Date().toISOString()
-    ]);
-
-    // Send styled confirmation email to the registrant if email exists
-    if (data.email && data.email.indexOf("@") !== -1) {
+      timestamp: data.timestamp || new Date().toISOString()
+    };
+    
+    // Match and assign data properties into correct column positions
+    var rowMatched = false;
+    for (var key in formattedData) {
+      var aliases = keyMappings[key] || [key.toLowerCase()];
+      var foundIndex = -1;
+      
+      for (var a = 0; a < aliases.length; a++) {
+        var alias = aliases[a];
+        if (headerMap[alias] !== undefined) {
+          foundIndex = headerMap[alias];
+          break;
+        }
+      }
+      
+      if (foundIndex !== -1) {
+        rowData[foundIndex - 1] = formattedData[key];
+        rowMatched = true;
+      }
+    }
+    
+    // If we mapped columns successfully to existing sheet headers, write row
+    if (rowMatched) {
+      sheet.appendRow(rowData);
+    } else {
+      // Fallback fallback: Append straight standard order
+      sheet.appendRow([
+        formattedData.id,
+        formattedData.fullName,
+        formattedData.email,
+        formattedData.phoneNumber,
+        formattedData.churchName,
+        formattedData.ageRange,
+        formattedData.sex,
+        formattedData.volunteerOptions,
+        formattedData.timestamp
+      ]);
+    }
+    
+    // Send beautifully styled confirmation email receipt to user
+    if (formattedData.email && formattedData.email.indexOf("@") !== -1 && formattedData.email !== "test@example.com") {
       try {
-        var subject = "🎟️ Registration Confirmed - Teens Converge 2026 [ID: " + (data.id || "") + "]";
+        var subject = "🎟️ Registration Confirmed - Teens Converge 2026 [ID: " + formattedData.id + "]";
         var htmlBody = 
-          '<div style="font-family: -apple-system, BlinkMacSystemFont, \\'Segoe UI\\', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e4e4e7; border-radius: 16px; background-color: #ffffff; color: #18181b;">' +
+          '<div style="font-family: -apple-system, BlinkMacSystemFont, \\'Segoe UI\\', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 25px; border: 1px solid #e4e4e7; border-radius: 20px; background-color: #ffffff; color: #18181b; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">' +
             '<div style="text-align: center; border-bottom: 2px solid #3b82f6; padding-bottom: 20px; margin-bottom: 25px;">' +
-              '<h2 style="color: #3b82f6; margin: 0; font-size: 24px; text-transform: uppercase; letter-spacing: 0.5px;">Teens Converge 2026</h2>' +
-              '<p style="margin: 5px 0 0; font-size: 14px; text-transform: uppercase; letter-spacing: 2px; color: #71717a; font-weight: 700;">Youth Conference Registration</p>' +
+              '<h2 style="color: #3b82f6; margin: 0; font-size: 26px; text-transform: uppercase; letter-spacing: 0.5px;">Teens Converge 2026</h2>' +
+              '<p style="margin: 6px 0 0; font-size: 13px; text-transform: uppercase; letter-spacing: 2.5px; color: #71717a; font-weight: 700;">Youth Conference Receipt</p>' +
             '</div>' +
             
-            '<p style="font-size: 16px; line-height: 1.5; color: #27272a;">Dear <strong>' + data.fullName + '</strong>,</p>' +
+            '<p style="font-size: 16px; line-height: 1.5; color: #27272a;">Dear <strong>' + formattedData.fullName + '</strong>,</p>' +
             '<p style="font-size: 15px; line-height: 1.6; color: #3f3f46;">Your register spot has been successfully confirmed for the <strong>Teens Converge Youth Conference 2026</strong>! We are absolutely thrilled to have you join us.</p>' +
             
             '<div style="background-color: #f4f4f5; border-radius: 12px; padding: 20px; margin: 25px 0; border: 1px dashed #d4d4d8;">' +
               '<div style="text-align: center; margin-bottom: 15px;">' +
                 '<span style="font-size: 11px; text-transform: uppercase; font-family: monospace; letter-spacing: 2px; color: #71717a; font-weight: bold;">Your Digital Pass ID</span>' +
-                '<div style="font-size: 32px; font-weight: 900; color: #1d4ed8; font-family: monospace; margin: 5px 0;">' + (data.id || "TC-PASS") + '</div>' +
+                '<div style="font-size: 32px; font-weight: 900; color: #1d4ed8; font-family: monospace; margin: 5px 0;">' + formattedData.id + '</div>' +
               '</div>' +
               
               '<table style="width: 100%; border-collapse: collapse; font-size: 14px;">' +
                 '<tr>' +
                   '<td style="padding: 6px 0; font-weight: bold; color: #71717a; width: 35%;">Full Name:</td>' +
-                  '<td style="padding: 6px 0; color: #18181b; font-weight: 500;">' + data.fullName + '</td>' +
+                  '<td style="padding: 6px 0; color: #18181b; font-weight: 500;">' + formattedData.fullName + '</td>' +
                 '</tr>' +
                 '<tr>' +
                   '<td style="padding: 6px 0; font-weight: bold; color: #71717a;">Email Address:</td>' +
-                  '<td style="padding: 6px 0; color: #18181b; font-weight: 500;">' + data.email + '</td>' +
+                  '<td style="padding: 6px 0; color: #18181b; font-weight: 500;">' + formattedData.email + '</td>' +
                 '</tr>' +
                 '<tr>' +
                   '<td style="padding: 6px 0; font-weight: bold; color: #71717a;">Phone Number:</td>' +
-                  '<td style="padding: 6px 0; color: #18181b; font-weight: 500;">' + data.phoneNumber + '</td>' +
+                  '<td style="padding: 6px 0; color: #18181b; font-weight: 500;">' + formattedData.phoneNumber + '</td>' +
                 '</tr>' +
                 '<tr>' +
                   '<td style="padding: 6px 0; font-weight: bold; color: #71717a;">Church Name:</td>' +
-                  '<td style="padding: 6px 0; color: #18181b; font-weight: 500;">' + (data.churchName || "Not Specified") + '</td>' +
+                  '<td style="padding: 6px 0; color: #18181b; font-weight: 500;">' + formattedData.churchName + '</td>' +
                 '</tr>' +
                 '<tr>' +
                   '<td style="padding: 6px 0; font-weight: bold; color: #71717a;">Age Range / Sex:</td>' +
-                  '<td style="padding: 6px 0; color: #18181b; font-weight: 500;">' + data.ageRange + ' (' + data.sex + ')</td>' +
+                  '<td style="padding: 6px 0; color: #18181b; font-weight: 500;">' + formattedData.ageRange + ' (' + formattedData.sex + ')</td>' +
                 '</tr>' +
                 '<tr>' +
-                  '<td style="padding: 6px 0; font-weight: bold; color: #71717a;">Role:</td>' +
-                  '<td style="padding: 6px 0; color: #18181b; font-weight: 500;">' + ((data.volunteerOptions && data.volunteerOptions.length > 0) ? data.volunteerOptions.join(", ") : "Attendee") + '</td>' +
+                  '<td style="padding: 6px 0; font-weight: bold; color: #71717a;">Role / Access:</td>' +
+                  '<td style="padding: 6px 0; color: #18181b; font-weight: 500;">' + formattedData.volunteerOptions + '</td>' +
                 '</tr>' +
               '</table>' +
             '</div>' +
@@ -163,16 +239,16 @@ function doPost(e) {
               '</p>' +
             '</div>' +
             
-            '<p style="font-size: 14px; line-height: 1.6; color: #52525b; margin-top: 25px;">Please show your Pass ID upon arrival to scan/verify your entry. If registering for one of the volunteer teams, a coordinator will reach out to you soon with further details.</p>' +
+            '<p style="font-size: 14px; line-height: 1.6; color: #52525b; margin-top: 25px;">Please show your Digital Pass ID upon arrival to scan and verify your entry. If you signed up to volunteer on a team, a coordinator will reach out to you shortly with team briefings.</p>' +
             
             '<div style="border-top: 1px solid #e4e4e7; margin-top: 30px; padding-top: 15px; text-align: center; font-size: 12px; color: #a1a1aa;">' +
-              '<p style="margin: 0 0 5px;">This email was automatically sent regarding your registration for Teens Converge 2026.</p>' +
-              '<p style="margin: 0;">For updates, please join our official WhatsApp community group.</p>' +
+              '<p style="margin: 0 0 5px;">This is a transaction receipt confirming your youth conference entry.</p>' +
+              '<p style="margin: 0;">For immediate updates, join our official Teens Converge WhatsApp community.</p>' +
             '</div>' +
           '</div>';
-         
+          
         MailApp.sendEmail({
-          to: data.email,
+          to: formattedData.email,
           subject: subject,
           htmlBody: htmlBody
         });

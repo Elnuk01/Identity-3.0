@@ -124,6 +124,7 @@ export default function RegistrationForm({ darkMode, onSuccess }: RegistrationFo
     const payload = {
       fullName: fullName.trim(),
       email: email.trim(),
+      emailAddress: email.trim(),
       phoneNumber: phoneNumber.trim(),
       churchName: churchName.trim(),
       ageRange,
