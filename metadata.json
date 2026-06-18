@@ -1,6 +1,6 @@
 {
   "name": "Teens Converge Youth Conference",
-  "description": "Clean, focused registration portal for the Teens Converge Youth Conference featuring customized fields, pass generation, and direct WhatsApp group joining.",
+  "description": "Registration portal for Teens Converge Youth Conference.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

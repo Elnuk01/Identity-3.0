@@ -1,6 +1,7 @@
 export interface Registration {
   id: string;
   fullName: string;
+  email: string;
   phoneNumber: string;
   churchName: string;
   ageRange: string; // 10-14, 15-19, 20-24, 25-29, 30 and above

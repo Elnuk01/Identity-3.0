@@ -77,6 +77,7 @@ function doPost(e) {
       sheet.appendRow([
         "Pass ID", 
         "Full Name", 
+        "Email Address",
         "Phone Number", 
         "Church Name", 
         "Age Range", 
@@ -85,7 +86,7 @@ function doPost(e) {
         "Registration Timestamp"
       ]);
       // Format headers bold with gray background
-      var listRange = sheet.getRange(1, 1, 1, 8);
+      var listRange = sheet.getRange(1, 1, 1, 9);
       listRange.setFontWeight("bold");
       listRange.setBackground("#f3f4f6");
     }
@@ -94,6 +95,7 @@ function doPost(e) {
     sheet.appendRow([
       data.id || "N/A",
       data.fullName || "N/A",
+      data.email || "N/A",
       data.phoneNumber || "N/A",
       data.churchName || "Not Specified",
       data.ageRange || "N/A",
@@ -103,6 +105,81 @@ function doPost(e) {
         : "Attendee",
       data.timestamp || new Date().toISOString()
     ]);
+
+    // Send styled confirmation email to the registrant if email exists
+    if (data.email && data.email.indexOf("@") !== -1) {
+      try {
+        var subject = "🎟️ Registration Confirmed - Teens Converge 2026 [ID: " + (data.id || "") + "]";
+        var htmlBody = 
+          '<div style="font-family: -apple-system, BlinkMacSystemFont, \\'Segoe UI\\', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e4e4e7; border-radius: 16px; background-color: #ffffff; color: #18181b;">' +
+            '<div style="text-align: center; border-bottom: 2px solid #3b82f6; padding-bottom: 20px; margin-bottom: 25px;">' +
+              '<h2 style="color: #3b82f6; margin: 0; font-size: 24px; text-transform: uppercase; letter-spacing: 0.5px;">Teens Converge 2026</h2>' +
+              '<p style="margin: 5px 0 0; font-size: 14px; text-transform: uppercase; letter-spacing: 2px; color: #71717a; font-weight: 700;">Youth Conference Registration</p>' +
+            '</div>' +
+            
+            '<p style="font-size: 16px; line-height: 1.5; color: #27272a;">Dear <strong>' + data.fullName + '</strong>,</p>' +
+            '<p style="font-size: 15px; line-height: 1.6; color: #3f3f46;">Your register spot has been successfully confirmed for the <strong>Teens Converge Youth Conference 2026</strong>! We are absolutely thrilled to have you join us.</p>' +
+            
+            '<div style="background-color: #f4f4f5; border-radius: 12px; padding: 20px; margin: 25px 0; border: 1px dashed #d4d4d8;">' +
+              '<div style="text-align: center; margin-bottom: 15px;">' +
+                '<span style="font-size: 11px; text-transform: uppercase; font-family: monospace; letter-spacing: 2px; color: #71717a; font-weight: bold;">Your Digital Pass ID</span>' +
+                '<div style="font-size: 32px; font-weight: 900; color: #1d4ed8; font-family: monospace; margin: 5px 0;">' + (data.id || "TC-PASS") + '</div>' +
+              '</div>' +
+              
+              '<table style="width: 100%; border-collapse: collapse; font-size: 14px;">' +
+                '<tr>' +
+                  '<td style="padding: 6px 0; font-weight: bold; color: #71717a; width: 35%;">Full Name:</td>' +
+                  '<td style="padding: 6px 0; color: #18181b; font-weight: 500;">' + data.fullName + '</td>' +
+                '</tr>' +
+                '<tr>' +
+                  '<td style="padding: 6px 0; font-weight: bold; color: #71717a;">Email Address:</td>' +
+                  '<td style="padding: 6px 0; color: #18181b; font-weight: 500;">' + data.email + '</td>' +
+                '</tr>' +
+                '<tr>' +
+                  '<td style="padding: 6px 0; font-weight: bold; color: #71717a;">Phone Number:</td>' +
+                  '<td style="padding: 6px 0; color: #18181b; font-weight: 500;">' + data.phoneNumber + '</td>' +
+                '</tr>' +
+                '<tr>' +
+                  '<td style="padding: 6px 0; font-weight: bold; color: #71717a;">Church Name:</td>' +
+                  '<td style="padding: 6px 0; color: #18181b; font-weight: 500;">' + (data.churchName || "Not Specified") + '</td>' +
+                '</tr>' +
+                '<tr>' +
+                  '<td style="padding: 6px 0; font-weight: bold; color: #71717a;">Age Range / Sex:</td>' +
+                  '<td style="padding: 6px 0; color: #18181b; font-weight: 500;">' + data.ageRange + ' (' + data.sex + ')</td>' +
+                '</tr>' +
+                '<tr>' +
+                  '<td style="padding: 6px 0; font-weight: bold; color: #71717a;">Role:</td>' +
+                  '<td style="padding: 6px 0; color: #18181b; font-weight: 500;">' + ((data.volunteerOptions && data.volunteerOptions.length > 0) ? data.volunteerOptions.join(", ") : "Attendee") + '</td>' +
+                '</tr>' +
+              '</table>' +
+            '</div>' +
+            
+            '<div style="border-left: 4px solid #3b82f6; padding-left: 15px; margin: 25px 0;">' +
+              '<h4 style="margin: 0 0 5px; font-size: 15px; color: #18181b; font-weight: bold;">📅 Event Details & Schedule</h4>' +
+              '<p style="margin: 0; font-size: 14px; color: #52525b; line-height: 1.5;">' +
+                '<strong>Date:</strong> August 1st, 2026<br/>' +
+                '<strong>Time:</strong> 10:00 AM (Please arrive 15 minutes early)<br/>' +
+                '<strong>Venue:</strong> Main Auditorium' +
+              '</p>' +
+            '</div>' +
+            
+            '<p style="font-size: 14px; line-height: 1.6; color: #52525b; margin-top: 25px;">Please show your Pass ID upon arrival to scan/verify your entry. If registering for one of the volunteer teams, a coordinator will reach out to you soon with further details.</p>' +
+            
+            '<div style="border-top: 1px solid #e4e4e7; margin-top: 30px; padding-top: 15px; text-align: center; font-size: 12px; color: #a1a1aa;">' +
+              '<p style="margin: 0 0 5px;">This email was automatically sent regarding your registration for Teens Converge 2026.</p>' +
+              '<p style="margin: 0;">For updates, please join our official WhatsApp community group.</p>' +
+            '</div>' +
+          '</div>';
+         
+        MailApp.sendEmail({
+          to: data.email,
+          subject: subject,
+          htmlBody: htmlBody
+        });
+      } catch (mailErr) {
+        console.warn("Mail dispatch failed: " + mailErr.toString());
+      }
+    }
     
     return ContentService.createTextOutput(JSON.stringify({ 
       "success": true, 

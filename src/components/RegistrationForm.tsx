@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { Registration } from '../types';
 import { submitRegistration, getAppsScriptUrl, setAppsScriptUrl, GOOGLE_APPS_SCRIPT_CODE, getSavedRegistrations } from '../utils';
-import { User, Phone, Home, Calendar, Users, Check, Flame, Heart, Database, Settings, Copy, CheckCircle2, RefreshCw, HelpCircle, AlertCircle, ExternalLink, ChevronDown, ChevronUp, Award } from 'lucide-react';
+import { User, Mail, Phone, Home, Calendar, Users, Check, Flame, Heart, Database, Settings, Copy, CheckCircle2, RefreshCw, HelpCircle, AlertCircle, ExternalLink, ChevronDown, ChevronUp, Award } from 'lucide-react';
 import Countdown from './Countdown';
 
 interface RegistrationFormProps {
@@ -101,6 +101,7 @@ export default function RegistrationForm({ darkMode, onSuccess }: RegistrationFo
       const mockRecord = {
         id: 'TEST-CONN',
         fullName: 'Test Sync User',
+        email: 'test@example.com',
         phoneNumber: '+0000000000',
         churchName: 'Test Church',
         ageRange: '20 - 24',
@@ -169,6 +170,7 @@ export default function RegistrationForm({ darkMode, onSuccess }: RegistrationFo
 
   // Form states
   const [fullName, setFullName] = useState<string>('');
+  const [email, setEmail] = useState<string>('');
   const [phoneNumber, setPhoneNumber] = useState<string>('');
   const [churchName, setChurchName] = useState<string>('');
   const [ageRange, setAgeRange] = useState<string>('');
@@ -182,7 +184,7 @@ export default function RegistrationForm({ darkMode, onSuccess }: RegistrationFo
 
   useEffect(() => {
     validateForm();
-  }, [fullName, phoneNumber, churchName, ageRange, sex, selectedVolunteers, isVolunteer]);
+  }, [fullName, email, phoneNumber, churchName, ageRange, sex, selectedVolunteers, isVolunteer]);
 
   const validateForm = () => {
     const newErrors: { [key: string]: string } = {};
@@ -191,6 +193,12 @@ export default function RegistrationForm({ darkMode, onSuccess }: RegistrationFo
       newErrors.fullName = 'Full name is required.';
     } else if (fullName.trim().length < 3) {
       newErrors.fullName = 'Name must be at least 3 characters.';
+    }
+
+    if (!email.trim()) {
+      newErrors.email = 'Email address is required.';
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      newErrors.email = 'Please provide a valid email address.';
     }
 
     if (!phoneNumber.trim()) {
@@ -231,7 +239,7 @@ export default function RegistrationForm({ darkMode, onSuccess }: RegistrationFo
     setErrorMessage('');
 
     // Touch everything to trigger alerts
-    const allFields = ['fullName', 'phoneNumber', 'ageRange', 'sex', 'isVolunteer', 'selectedVolunteers'];
+    const allFields = ['fullName', 'email', 'phoneNumber', 'ageRange', 'sex', 'isVolunteer', 'selectedVolunteers'];
     const touchedAll: { [key: string]: boolean } = {};
     allFields.forEach(f => {
       touchedAll[f] = true;
@@ -247,6 +255,7 @@ export default function RegistrationForm({ darkMode, onSuccess }: RegistrationFo
 
     const payload = {
       fullName: fullName.trim(),
+      email: email.trim(),
       phoneNumber: phoneNumber.trim(),
       churchName: churchName.trim(),
       ageRange,
@@ -355,6 +364,36 @@ export default function RegistrationForm({ darkMode, onSuccess }: RegistrationFo
               </div>
               {touched.fullName && errors.fullName && (
                 <p className="text-rose-500 text-xs font-sans mt-1.5">{errors.fullName}</p>
+              )}
+            </div>
+
+            {/* Email Address field */}
+            <div>
+              <label id="lbl-email" className="block text-xs font-mono font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-2">
+                Email Address <span className="text-rose-500">*</span>
+              </label>
+              <div className="relative">
+                <input
+                  type="email"
+                  required
+                  placeholder="name@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  onBlur={() => handleBlur('email')}
+                  className={`w-full py-3.5 pl-11 pr-4 rounded-xl text-sm font-sans transition-colors border ${
+                    touched.email && errors.email
+                      ? 'border-rose-500 bg-rose-500/5 focus:outline-none'
+                      : darkMode
+                        ? 'bg-zinc-950 border-zinc-805 text-white focus:border-blue-500 focus:outline-none'
+                        : 'bg-zinc-50 border-zinc-300 text-zinc-950 focus:border-blue-500 focus:outline-none'
+                  }`}
+                />
+                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500">
+                  <Mail className="w-4 h-4" />
+                </div>
+              </div>
+              {touched.email && errors.email && (
+                <p className="text-rose-500 text-xs font-sans mt-1.5">{errors.email}</p>
               )}
             </div>
 

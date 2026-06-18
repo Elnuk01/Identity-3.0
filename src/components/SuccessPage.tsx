@@ -17,12 +17,12 @@ export default function SuccessPage({ registration, darkMode, onReset }: Success
   const [qrCodeUrl, setQrCodeUrl] = useState<string>('');
   const [downloading, setDownloading] = useState<boolean>(false);
 
-  const { id, fullName, phoneNumber, churchName, ageRange, sex, volunteerOptions } = registration;
+  const { id, fullName, email, phoneNumber, churchName, ageRange, sex, volunteerOptions } = registration;
 
   const whatsAppLink = "https://chat.whatsapp.com/CibIPByTE89GOFfs6vhPql?s=cl&p=i&ilr=1";
 
   // QR Code payload
-  const qrData = `ID:${id}\nName:${fullName}\nPhone:${phoneNumber}\nChurch:${churchName || 'N/A'}\nAgeRange:${ageRange}\nSex:${sex}`;
+  const qrData = `ID:${id}\nName:${fullName}\nEmail:${email}\nPhone:${phoneNumber}\nChurch:${churchName || 'N/A'}\nAgeRange:${ageRange}\nSex:${sex}`;
 
   useEffect(() => {
     QRCode.toDataURL(
@@ -255,7 +255,16 @@ export default function SuccessPage({ registration, darkMode, onReset }: Success
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
-                  <div>
+                  <div className="col-span-2 md:col-span-1">
+                    <span className="block text-[8px] font-mono text-zinc-400 dark:text-zinc-500 uppercase font-black tracking-wider mb-0.5">
+                      EMAIL ADDRESS
+                    </span>
+                    <span className="text-xs font-semibold leading-none font-mono truncate block max-w-full" title={email}>
+                      {email}
+                    </span>
+                  </div>
+
+                  <div className="col-span-2 md:col-span-1">
                     <span className="block text-[8px] font-mono text-zinc-400 dark:text-zinc-500 uppercase font-black tracking-wider mb-0.5">
                       PHONE NUMBER
                     </span>
