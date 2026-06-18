@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { Registration } from '../types';
-import { submitRegistration, getAppsScriptUrl, setAppsScriptUrl, GOOGLE_APPS_SCRIPT_CODE, getSavedRegistrations } from '../utils';
-import { User, Mail, Phone, Home, Calendar, Users, Check, Flame, Heart, Database, Settings, Copy, CheckCircle2, RefreshCw, HelpCircle, AlertCircle, ExternalLink, ChevronDown, ChevronUp, Award } from 'lucide-react';
+import { submitRegistration } from '../utils';
+import { User, Mail, Phone, Home, Calendar, Users, Check, Flame, Heart, ExternalLink, Award } from 'lucide-react';
 import Countdown from './Countdown';
 
 interface RegistrationFormProps {
@@ -35,138 +35,6 @@ const VOLUNTEER_ROLES = [
 export default function RegistrationForm({ darkMode, onSuccess }: RegistrationFormProps) {
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string>('');
-
-  // Google Sheets integration state
-  const [adminUrl, setAdminUrl] = useState<string>('');
-  const [copiedCode, setCopiedCode] = useState<boolean>(false);
-  const [showAdmin, setShowAdmin] = useState<boolean>(false);
-  const [testSyncing, setTestSyncing] = useState<boolean>(false);
-  const [testSuccess, setTestSuccess] = useState<boolean | null>(null);
-  const [syncAllStatus, setSyncAllStatus] = useState<'idle' | 'syncing' | 'completed' | 'failed'>('idle');
-  const [localRegsCount, setLocalRegsCount] = useState<number>(0);
-
-  // Hidden admin settings access states
-  const [isAdminUnlocked, setIsAdminUnlocked] = useState<boolean>(false);
-  const [clickCount, setClickCount] = useState<number>(0);
-
-  useEffect(() => {
-    setAdminUrl(getAppsScriptUrl());
-    setLocalRegsCount(getSavedRegistrations().length);
-
-    // Auto-unlock via query string / hash or saved cookie/storage config
-    const hasAdminQuery = window.location.search.includes('admin=true') || window.location.hash === '#admin';
-    const isSavedUnlocked = localStorage.getItem('teens_converge_admin_unlocked') === 'true';
-    if (hasAdminQuery || isSavedUnlocked) {
-      setIsAdminUnlocked(true);
-    }
-  }, []);
-
-  const handleTitleClick = () => {
-    setClickCount(prev => {
-      const next = prev + 1;
-      if (next >= 5) {
-        const pin = prompt('Enter Administration Passcode to unlock Google Sheet sync panel:');
-        if (pin === 'identity3' || pin === 'admin' || pin === '1122' || pin === 'converge3.0') {
-          setIsAdminUnlocked(true);
-          localStorage.setItem('teens_converge_admin_unlocked', 'true');
-          alert('Administration Panel unlocked successfully! You can configure your Google Sheet settings below the form now.');
-        } else {
-          alert('Invalid passcode. Access Denied.');
-        }
-        return 0;
-      }
-      return next;
-    });
-  };
-
-  const handleSaveUrl = () => {
-    setAppsScriptUrl(adminUrl);
-    setTestSuccess(null);
-  };
-
-  const handleCopyCode = () => {
-    navigator.clipboard.writeText(GOOGLE_APPS_SCRIPT_CODE);
-    setCopiedCode(true);
-    setTimeout(() => setCopiedCode(false), 2000);
-  };
-
-  const handleTestConnection = async () => {
-    if (!adminUrl.trim().startsWith('http')) {
-      setTestSuccess(false);
-      return;
-    }
-    setTestSyncing(true);
-    setTestSuccess(null);
-    try {
-      const mockRecord = {
-        id: 'TEST-CONN',
-        fullName: 'Test Sync User',
-        email: 'test@example.com',
-        phoneNumber: '+0000000000',
-        churchName: 'Test Church',
-        ageRange: '20 - 24',
-        sex: 'Male',
-        volunteerOptions: ['usher'],
-        timestamp: new Date().toISOString()
-      };
-      
-      await fetch(adminUrl, {
-        method: 'POST',
-        mode: 'no-cors',
-        cache: 'no-cache',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(mockRecord)
-      });
-      
-      setTestSuccess(true);
-    } catch (error) {
-      console.error(error);
-      setTestSuccess(false);
-    } finally {
-      setTestSyncing(false);
-    }
-  };
-
-  const handleSyncAll = async () => {
-    const currentRegs = getSavedRegistrations();
-    if (currentRegs.length === 0) {
-      alert('No registrations available yet to sync!');
-      return;
-    }
-    if (!adminUrl.trim().startsWith('http')) {
-      alert('Please configure a valid Google Sheet Web App URL first!');
-      return;
-    }
-
-    setSyncAllStatus('syncing');
-    let successCount = 0;
-
-    for (const reg of currentRegs) {
-      try {
-        await fetch(adminUrl, {
-          method: 'POST',
-          mode: 'no-cors',
-          cache: 'no-cache',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(reg)
-        });
-        successCount++;
-      } catch (e) {
-        console.error(e);
-      }
-    }
-
-    if (successCount === currentRegs.length) {
-      setSyncAllStatus('completed');
-    } else {
-      setSyncAllStatus('failed');
-    }
-    setTimeout(() => setSyncAllStatus('idle'), 3000);
-  };
 
   // Form states
   const [fullName, setFullName] = useState<string>('');
@@ -306,15 +174,13 @@ export default function RegistrationForm({ darkMode, onSuccess }: RegistrationFo
           {/* Decorative Tagline */}
           <div className="text-center mb-6">
             <span
-              onClick={handleTitleClick}
-              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-mono font-black tracking-widest uppercase bg-blue-500/10 text-blue-500 border border-blue-500/20 mb-3 cursor-pointer select-none hover:bg-blue-500/15 transition-colors"
+              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-mono font-black tracking-widest uppercase bg-blue-500/10 text-blue-500 border border-blue-500/20 mb-3 select-none"
             >
               <Flame className="w-3 h-3 text-blue-500" />
               CONVERGE 2026 REGISTRATION
             </span>
             <h1
-              onClick={handleTitleClick}
-              className="font-display font-black text-2xl sm:text-3xl uppercase tracking-tighter cursor-pointer select-none active:scale-98 transition-transform"
+              className="font-display font-black text-2xl sm:text-3xl uppercase tracking-tighter select-none"
             >
               Ready to{' '}
               <span className="bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500 bg-clip-text text-transparent">
