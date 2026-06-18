@@ -1,0 +1,757 @@
+import React, { useState, useEffect } from 'react';
+import { motion } from 'motion/react';
+import { Registration } from '../types';
+import { submitRegistration, getAppsScriptUrl, setAppsScriptUrl, GOOGLE_APPS_SCRIPT_CODE, getSavedRegistrations } from '../utils';
+import { User, Phone, Home, Calendar, Users, Check, Flame, Heart, Database, Settings, Copy, CheckCircle2, RefreshCw, HelpCircle, AlertCircle, ExternalLink, ChevronDown, ChevronUp, Award } from 'lucide-react';
+import Countdown from './Countdown';
+
+interface RegistrationFormProps {
+  darkMode: boolean;
+  onSuccess: (reg: Registration) => void;
+}
+
+const AGE_RANGES = [
+  '10 - 14',
+  '15 - 19',
+  '20 - 24',
+  '25 - 29',
+  '30 and above'
+];
+
+const GENDERS = [
+  { value: 'Male', label: 'Male' },
+  { value: 'Female', label: 'Female' }
+];
+
+const VOLUNTEER_ROLES = [
+  { value: 'usher', label: 'Usher' },
+  { value: 'media', label: 'Media' },
+  { value: 'welfare', label: 'Welfare' },
+  { value: 'singer', label: 'Singer / Vocalist' },
+  { value: 'instrumentalist', label: 'Instrumentalist' },
+  { value: 'prayer', label: 'Prayer Team' }
+];
+
+export default function RegistrationForm({ darkMode, onSuccess }: RegistrationFormProps) {
+  const [submitting, setSubmitting] = useState<boolean>(false);
+  const [errorMessage, setErrorMessage] = useState<string>('');
+
+  // Google Sheets integration state
+  const [adminUrl, setAdminUrl] = useState<string>('');
+  const [copiedCode, setCopiedCode] = useState<boolean>(false);
+  const [showAdmin, setShowAdmin] = useState<boolean>(false);
+  const [testSyncing, setTestSyncing] = useState<boolean>(false);
+  const [testSuccess, setTestSuccess] = useState<boolean | null>(null);
+  const [syncAllStatus, setSyncAllStatus] = useState<'idle' | 'syncing' | 'completed' | 'failed'>('idle');
+  const [localRegsCount, setLocalRegsCount] = useState<number>(0);
+
+  // Hidden admin settings access states
+  const [isAdminUnlocked, setIsAdminUnlocked] = useState<boolean>(false);
+  const [clickCount, setClickCount] = useState<number>(0);
+
+  useEffect(() => {
+    setAdminUrl(getAppsScriptUrl());
+    setLocalRegsCount(getSavedRegistrations().length);
+
+    // Auto-unlock via query string / hash or saved cookie/storage config
+    const hasAdminQuery = window.location.search.includes('admin=true') || window.location.hash === '#admin';
+    const isSavedUnlocked = localStorage.getItem('teens_converge_admin_unlocked') === 'true';
+    if (hasAdminQuery || isSavedUnlocked) {
+      setIsAdminUnlocked(true);
+    }
+  }, []);
+
+  const handleTitleClick = () => {
+    setClickCount(prev => {
+      const next = prev + 1;
+      if (next >= 5) {
+        const pin = prompt('Enter Administration Passcode to unlock Google Sheet sync panel:');
+        if (pin === 'identity3' || pin === 'admin' || pin === '1122' || pin === 'converge3.0') {
+          setIsAdminUnlocked(true);
+          localStorage.setItem('teens_converge_admin_unlocked', 'true');
+          alert('Administration Panel unlocked successfully! You can configure your Google Sheet settings below the form now.');
+        } else {
+          alert('Invalid passcode. Access Denied.');
+        }
+        return 0;
+      }
+      return next;
+    });
+  };
+
+  const handleSaveUrl = () => {
+    setAppsScriptUrl(adminUrl);
+    setTestSuccess(null);
+  };
+
+  const handleCopyCode = () => {
+    navigator.clipboard.writeText(GOOGLE_APPS_SCRIPT_CODE);
+    setCopiedCode(true);
+    setTimeout(() => setCopiedCode(false), 2000);
+  };
+
+  const handleTestConnection = async () => {
+    if (!adminUrl.trim().startsWith('http')) {
+      setTestSuccess(false);
+      return;
+    }
+    setTestSyncing(true);
+    setTestSuccess(null);
+    try {
+      const mockRecord = {
+        id: 'TEST-CONN',
+        fullName: 'Test Sync User',
+        phoneNumber: '+0000000000',
+        churchName: 'Test Church',
+        ageRange: '20 - 24',
+        sex: 'Male',
+        volunteerOptions: ['usher'],
+        timestamp: new Date().toISOString()
+      };
+      
+      await fetch(adminUrl, {
+        method: 'POST',
+        mode: 'no-cors',
+        cache: 'no-cache',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(mockRecord)
+      });
+      
+      setTestSuccess(true);
+    } catch (error) {
+      console.error(error);
+      setTestSuccess(false);
+    } finally {
+      setTestSyncing(false);
+    }
+  };
+
+  const handleSyncAll = async () => {
+    const currentRegs = getSavedRegistrations();
+    if (currentRegs.length === 0) {
+      alert('No registrations available yet to sync!');
+      return;
+    }
+    if (!adminUrl.trim().startsWith('http')) {
+      alert('Please configure a valid Google Sheet Web App URL first!');
+      return;
+    }
+
+    setSyncAllStatus('syncing');
+    let successCount = 0;
+
+    for (const reg of currentRegs) {
+      try {
+        await fetch(adminUrl, {
+          method: 'POST',
+          mode: 'no-cors',
+          cache: 'no-cache',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(reg)
+        });
+        successCount++;
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    if (successCount === currentRegs.length) {
+      setSyncAllStatus('completed');
+    } else {
+      setSyncAllStatus('failed');
+    }
+    setTimeout(() => setSyncAllStatus('idle'), 3000);
+  };
+
+  // Form states
+  const [fullName, setFullName] = useState<string>('');
+  const [phoneNumber, setPhoneNumber] = useState<string>('');
+  const [churchName, setChurchName] = useState<string>('');
+  const [ageRange, setAgeRange] = useState<string>('');
+  const [sex, setSex] = useState<string>('');
+  const [selectedVolunteers, setSelectedVolunteers] = useState<string[]>([]);
+  const [isVolunteer, setIsVolunteer] = useState<boolean | null>(null);
+
+  // Validation
+  const [touched, setTouched] = useState<{ [key: string]: boolean }>({});
+  const [errors, setErrors] = useState<{ [key: string]: string }>({});
+
+  useEffect(() => {
+    validateForm();
+  }, [fullName, phoneNumber, churchName, ageRange, sex, selectedVolunteers, isVolunteer]);
+
+  const validateForm = () => {
+    const newErrors: { [key: string]: string } = {};
+
+    if (!fullName.trim()) {
+      newErrors.fullName = 'Full name is required.';
+    } else if (fullName.trim().length < 3) {
+      newErrors.fullName = 'Name must be at least 3 characters.';
+    }
+
+    if (!phoneNumber.trim()) {
+      newErrors.phoneNumber = 'Phone number is required.';
+    } else if (phoneNumber.trim().replace(/\D/g, '').length < 8) {
+      newErrors.phoneNumber = 'Please provide a valid phone number.';
+    }
+
+    if (!ageRange) {
+      newErrors.ageRange = 'Please select your age range.';
+    }
+
+    if (!sex) {
+      newErrors.sex = 'Please select your sex.';
+    }
+
+    if (isVolunteer === null) {
+      newErrors.isVolunteer = 'Please choose if you would like to volunteer.';
+    } else if (isVolunteer && selectedVolunteers.length === 0) {
+      newErrors.selectedVolunteers = 'Please choose at least one volunteering position.';
+    }
+
+    setErrors(newErrors);
+  };
+
+  const handleBlur = (field: string) => {
+    setTouched(prev => ({ ...prev, [field]: true }));
+  };
+
+  const handleVolunteerToggle = (role: string) => {
+    setSelectedVolunteers(prev =>
+      prev.includes(role) ? prev.filter(r => r !== role) : [...prev, role]
+    );
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMessage('');
+
+    // Touch everything to trigger alerts
+    const allFields = ['fullName', 'phoneNumber', 'ageRange', 'sex', 'isVolunteer', 'selectedVolunteers'];
+    const touchedAll: { [key: string]: boolean } = {};
+    allFields.forEach(f => {
+      touchedAll[f] = true;
+    });
+    setTouched(prev => ({ ...prev, ...touchedAll }));
+
+    if (Object.keys(errors).length > 0) {
+      setErrorMessage('Please correct all highlighted fields before submitting.');
+      return;
+    }
+
+    setSubmitting(true);
+
+    const payload = {
+      fullName: fullName.trim(),
+      phoneNumber: phoneNumber.trim(),
+      churchName: churchName.trim(),
+      ageRange,
+      sex,
+      volunteerOptions: isVolunteer ? selectedVolunteers : []
+    };
+
+    try {
+      const response = await submitRegistration(payload);
+      if (response.success && response.registration) {
+        onSuccess(response.registration);
+      } else {
+        setErrorMessage(response.error || 'Registration failed. Please try again.');
+      }
+    } catch (err) {
+      setErrorMessage('A network error occurred. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <section
+      id="registration-section"
+      className={`relative min-h-screen py-16 flex items-center justify-center transition-colors duration-300 ${
+        darkMode ? 'bg-zinc-950 text-white' : 'bg-gradient-to-b from-slate-50 to-zinc-100 text-zinc-900'
+      }`}
+    >
+      {/* Background elegant lighting glow */}
+      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[300px] sm:w-[500px] h-[300px] sm:h-[500px] bg-blue-600/10 rounded-full blur-[100px] pointer-events-none" />
+      <div className="absolute bottom-1/4 right-0 w-[200px] sm:w-[400px] h-[200px] sm:h-[400px] bg-purple-600/10 rounded-full blur-[100px] pointer-events-none" />
+
+      <div className="max-w-xl mx-auto px-4 sm:px-6 relative z-10 w-full">
+        {/* Registration form card wrapper */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className={`p-6 sm:p-10 rounded-3xl border shadow-xl ${
+            darkMode
+              ? 'bg-zinc-900/90 border-zinc-800/80 backdrop-blur-md shadow-blue-500/5'
+              : 'bg-white border-zinc-200/80 shadow-zinc-200/50'
+          }`}
+        >
+          {/* Countdown timer */}
+          <Countdown darkMode={darkMode} />
+
+          {/* Decorative Tagline */}
+          <div className="text-center mb-6">
+            <span
+              onClick={handleTitleClick}
+              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-mono font-black tracking-widest uppercase bg-blue-500/10 text-blue-500 border border-blue-500/20 mb-3 cursor-pointer select-none hover:bg-blue-500/15 transition-colors"
+            >
+              <Flame className="w-3 h-3 text-blue-500" />
+              CONVERGE 2026 REGISTRATION
+            </span>
+            <h1
+              onClick={handleTitleClick}
+              className="font-display font-black text-2xl sm:text-3xl uppercase tracking-tighter cursor-pointer select-none active:scale-98 transition-transform"
+            >
+              Ready to{' '}
+              <span className="bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500 bg-clip-text text-transparent">
+                Converge?
+              </span>
+            </h1>
+            <p className={`text-xs mt-1.5 font-medium ${darkMode ? 'text-zinc-500' : 'text-zinc-500'}`}>
+              Fill your registration details below to book your complimentary pass.
+            </p>
+          </div>
+
+          <div className="h-px bg-zinc-200/50 dark:bg-zinc-800/50 w-full mb-6" />
+
+          {errorMessage && (
+            <div className="p-4.5 mb-6 rounded-xl text-xs font-semibold bg-rose-500/10 border border-rose-500/30 text-rose-500 flex items-center gap-2">
+              <span>⚠️</span>
+              <p>{errorMessage}</p>
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} noValidate className="space-y-6">
+            
+            {/* Full Name field */}
+            <div>
+              <label id="lbl-fullname" className="block text-xs font-mono font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-2">
+                Full Name <span className="text-rose-500">*</span>
+              </label>
+              <div className="relative">
+                <input
+                  type="text"
+                  required
+                  placeholder="Enter your full name"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  onBlur={() => handleBlur('fullName')}
+                  className={`w-full py-3.5 pl-11 pr-4 rounded-xl text-sm font-sans transition-colors border ${
+                    touched.fullName && errors.fullName
+                      ? 'border-rose-500 bg-rose-500/5 focus:outline-none'
+                      : darkMode
+                        ? 'bg-zinc-950 border-zinc-805 text-white focus:border-blue-500 focus:outline-none'
+                        : 'bg-zinc-50 border-zinc-300 text-zinc-950 focus:border-blue-500 focus:outline-none'
+                  }`}
+                />
+                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500">
+                  <User className="w-4 h-4" />
+                </div>
+              </div>
+              {touched.fullName && errors.fullName && (
+                <p className="text-rose-500 text-xs font-sans mt-1.5">{errors.fullName}</p>
+              )}
+            </div>
+
+            {/* Phone Number field */}
+            <div>
+              <label id="lbl-phone" className="block text-xs font-mono font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-2">
+                Phone Number <span className="text-rose-500">*</span>
+              </label>
+              <div className="relative">
+                <input
+                  type="tel"
+                  required
+                  placeholder="Enter phone number"
+                  value={phoneNumber}
+                  onChange={(e) => setPhoneNumber(e.target.value)}
+                  onBlur={() => handleBlur('phoneNumber')}
+                  className={`w-full py-3.5 pl-11 pr-4 rounded-xl text-sm font-sans transition-colors border ${
+                    touched.phoneNumber && errors.phoneNumber
+                      ? 'border-rose-500 bg-rose-500/5 focus:outline-none'
+                      : darkMode
+                        ? 'bg-zinc-950 border-zinc-805 text-white focus:border-blue-500 focus:outline-none'
+                        : 'bg-zinc-50 border-zinc-300 text-zinc-950 focus:border-blue-500 focus:outline-none'
+                  }`}
+                />
+                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500">
+                  <Phone className="w-4 h-4" />
+                </div>
+              </div>
+              {touched.phoneNumber && errors.phoneNumber && (
+                <p className="text-rose-500 text-xs font-sans mt-1.5">{errors.phoneNumber}</p>
+              )}
+            </div>
+
+            {/* Name of church field */}
+            <div>
+              <label id="lbl-church" className="block text-xs font-mono font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-2">
+                Name of Church <span className="text-zinc-400 font-normal lowercase italic">(Optional)</span>
+              </label>
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="What is the name of your church?"
+                  value={churchName}
+                  onChange={(e) => setChurchName(e.target.value)}
+                  className={`w-full py-3.5 pl-11 pr-4 rounded-xl text-sm font-sans transition-colors border ${
+                    darkMode
+                      ? 'bg-zinc-950 border-zinc-805 text-white focus:border-blue-500 focus:outline-none'
+                      : 'bg-zinc-50 border-zinc-300 text-zinc-950 focus:border-blue-500 focus:outline-none'
+                  }`}
+                />
+                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500">
+                  <Home className="w-4 h-4" />
+                </div>
+              </div>
+            </div>
+
+            {/* Age range selection */}
+            <div>
+              <label className="block text-xs font-mono font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-2.5">
+                Age Range <span className="text-rose-500">*</span>
+              </label>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                {AGE_RANGES.map((range) => {
+                  const selected = ageRange === range;
+                  return (
+                    <button
+                      key={range}
+                      type="button"
+                      onClick={() => setAgeRange(range)}
+                      className={`py-3 px-4 text-xs font-semibold rounded-xl text-center border cursor-pointer transition-all duration-200 ${
+                        selected
+                          ? 'border-blue-500 bg-blue-500/10 text-blue-500'
+                          : darkMode
+                            ? 'bg-zinc-950/40 border-zinc-800 text-zinc-400 hover:border-zinc-755 hover:text-white'
+                            : 'bg-zinc-50 border-zinc-200 text-zinc-700 hover:border-zinc-300 hover:text-zinc-950'
+                      }`}
+                    >
+                      {range}
+                    </button>
+                  );
+                })}
+              </div>
+              {touched.ageRange && errors.ageRange && (
+                <p className="text-rose-500 text-xs font-sans mt-1.5">{errors.ageRange}</p>
+              )}
+            </div>
+
+            {/* Sex selection */}
+            <div>
+              <label className="block text-xs font-mono font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-2.5">
+                Sex <span className="text-rose-500">*</span>
+              </label>
+              <div className="grid grid-cols-2 gap-3">
+                {GENDERS.map((g) => {
+                  const selected = sex === g.value;
+                  return (
+                    <button
+                      key={g.value}
+                      type="button"
+                      onClick={() => setSex(g.value)}
+                      className={`py-3.5 px-6 font-semibold rounded-xl text-xs flex items-center justify-center gap-2 border cursor-pointer transition-all duration-200 ${
+                        selected
+                          ? 'border-indigo-500 bg-indigo-500/10 text-indigo-500 font-bold'
+                          : darkMode
+                            ? 'bg-zinc-950/40 border-zinc-805 text-zinc-400 hover:border-zinc-700 hover:text-white'
+                            : 'bg-zinc-50 border-zinc-205 text-zinc-700 hover:border-zinc-300 hover:text-zinc-950'
+                      }`}
+                    >
+                      {selected && <Check className="w-3.5 h-3.5" />}
+                      {g.label}
+                    </button>
+                  );
+                })}
+              </div>
+              {touched.sex && errors.sex && (
+                <p className="text-rose-500 text-xs font-sans mt-1.5">{errors.sex}</p>
+              )}
+            </div>
+
+            {/* Would you like to volunteer selection */}
+            <div className="pt-2">
+              <label className="block text-xs font-mono font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-2.5">
+                Would you like to volunteer? <span className="text-rose-500">*</span>
+              </label>
+              <div className="grid grid-cols-2 gap-3 mb-4Type text-xs">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsVolunteer(true);
+                  }}
+                  className={`py-3.5 px-6 font-semibold rounded-xl text-xs flex items-center justify-center gap-2 border cursor-pointer transition-all duration-200 ${
+                    isVolunteer === true
+                      ? 'border-emerald-500 bg-emerald-500/10 text-emerald-400 font-bold'
+                      : darkMode
+                        ? 'bg-zinc-950/40 border-zinc-800 text-zinc-400 hover:border-zinc-700 hover:text-white'
+                        : 'bg-zinc-50 border-zinc-200 text-zinc-700 hover:border-zinc-300 hover:text-zinc-950'
+                  }`}
+                >
+                  {isVolunteer === true && <Check className="w-3.5 h-3.5" />}
+                  Yes, I want to volunteer
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsVolunteer(false);
+                    setSelectedVolunteers([]);
+                  }}
+                  className={`py-3.5 px-6 font-semibold rounded-xl text-xs flex items-center justify-center gap-2 border cursor-pointer transition-all duration-200 ${
+                    isVolunteer === false
+                      ? 'border-zinc-500 bg-zinc-500/10 text-zinc-650 dark:text-zinc-350 font-bold'
+                      : darkMode
+                        ? 'bg-zinc-950/40 border-zinc-800 text-zinc-400 hover:border-zinc-700 hover:text-white'
+                        : 'bg-zinc-50 border-zinc-205 text-zinc-700 hover:border-zinc-300 hover:text-zinc-950'
+                  }`}
+                >
+                  {isVolunteer === false && <Check className="w-3.5 h-3.5" />}
+                  No, just attending
+                </button>
+              </div>
+              {touched.isVolunteer && errors.isVolunteer && (
+                <p className="text-rose-500 text-xs font-sans mt-1.5">{errors.isVolunteer}</p>
+              )}
+
+              {/* Sub Volunteer Roles Selection Checkboxes on YES */}
+              {isVolunteer === true && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  className="space-y-3 mt-4 border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-950/40 rounded-2xl p-4.5"
+                >
+                  <p className="text-[10px] font-mono font-bold text-zinc-500 uppercase tracking-widest flex items-center gap-1">
+                    <Award className="w-3.5 h-3.5 text-blue-500" />
+                    Select Volunteer Options <span className="text-zinc-400">(Choose one or more)</span>:
+                  </p>
+                  <div className="grid grid-cols-2 gap-2.5">
+                    {VOLUNTEER_ROLES.map((role) => {
+                      const active = selectedVolunteers.includes(role.value);
+                      return (
+                        <button
+                          key={role.value}
+                          type="button"
+                          onClick={() => handleVolunteerToggle(role.value)}
+                          className={`p-3 rounded-xl border flex items-center justify-between text-left cursor-pointer transition-all duration-150 ${
+                            active
+                              ? 'border-indigo-500/60 bg-indigo-500/5 text-indigo-500 dark:text-indigo-400 font-bold'
+                              : darkMode
+                                ? 'bg-zinc-900 border-zinc-800/80 text-zinc-450 hover:border-zinc-700'
+                                : 'bg-white border-zinc-200 text-zinc-650 hover:border-zinc-350'
+                          }`}
+                        >
+                          <span className="text-xs">{role.label}</span>
+                          <div className={`w-4 h-4 rounded border flex items-center justify-center ${
+                            active
+                              ? 'bg-indigo-500 border-indigo-500 text-white'
+                              : 'bg-transparent border-zinc-300 dark:border-zinc-700'
+                          }`}>
+                            {active && <Check className="w-3 h-3 stroke-[3]" />}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {touched.selectedVolunteers && errors.selectedVolunteers && (
+                    <p className="text-rose-500 text-xs font-sans mt-1">{errors.selectedVolunteers}</p>
+                  )}
+                </motion.div>
+              )}
+            </div>
+
+            {/* Submit Action */}
+            <div className="pt-4">
+              <button
+                type="submit"
+                disabled={submitting}
+                className="w-full bg-gradient-to-r from-blue-500 via-indigo-600 to-purple-600 hover:opacity-95 text-white font-mono text-xs font-bold py-4 rounded-2xl shadow-xl shadow-blue-500/15 tracking-widest uppercase transition-all duration-200 flex items-center justify-center gap-2.5 disabled:opacity-50 active:scale-98 cursor-pointer"
+              >
+                {submitting ? (
+                  <>
+                    <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <span>Booking your spot...</span>
+                  </>
+                ) : (
+                  <>
+                    <Heart className="w-4 h-4 fill-white animate-pulse" />
+                    <span>REGISTER & UNLOCK TICKET</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+          </form>
+        </motion.div>
+
+        {/* Google Sheets Admin Integration Console */}
+        {isAdminUnlocked && (
+          <div className="mt-8">
+            <button
+              onClick={() => setShowAdmin(!showAdmin)}
+              className={`w-full py-3.5 px-5 rounded-2xl font-mono text-[10px] sm:text-xs font-bold tracking-wider uppercase transition-all duration-200 flex items-center justify-between border cursor-pointer ${
+                darkMode
+                  ? 'bg-zinc-900 border-zinc-850/80 text-zinc-400 hover:text-white hover:bg-zinc-850'
+                  : 'bg-white border-zinc-200 text-zinc-650 hover:text-zinc-950 hover:bg-zinc-50 shadow-sm'
+              }`}
+            >
+              <span className="flex items-center gap-2">
+                <Database className="w-4 h-4 text-indigo-500 animate-pulse" />
+                <span>Google Sheet Settings</span>
+              </span>
+              <span className="flex items-center gap-1.5 text-[10px] text-zinc-400 capitalize font-sans font-normal">
+                {adminUrl ? 'Linked ✅' : 'Not Linked ❌'}
+                {showAdmin ? <ChevronUp className="w-3.5 h-3.5 ml-1" /> : <ChevronDown className="w-3.5 h-3.5 ml-1" />}
+              </span>
+            </button>
+
+            {showAdmin && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className={`rounded-3xl border p-5 sm:p-6 mt-3 transition-colors ${
+                  darkMode
+                    ? 'bg-zinc-900 border-zinc-800 text-white'
+                    : 'bg-white border-zinc-200 text-zinc-900 shadow-xl shadow-zinc-200/50'
+                }`}
+              >
+                <h3 className="font-display font-black text-sm uppercase tracking-wide mb-1 flex items-center gap-1.5 text-blue-500">
+                  <Settings className="w-4 h-4 animate-spin-slow" /> Configured Sheet Sync
+                </h3>
+                <p className={`text-[11px] mb-4 leading-relaxed ${darkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>
+                  Link registrations with your own specified Google Sheet by deploying a simple Google Apps Script Web App.
+                </p>
+
+                {/* URL Input */}
+                <div className="space-y-2 mb-4">
+                  <label className="block text-[8px] font-mono font-bold tracking-wider uppercase text-zinc-400">
+                    Google Apps Script Web App URL
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="url"
+                      placeholder="https://script.google.com/macros/s/.../exec"
+                      value={adminUrl}
+                      onChange={(e) => setAdminUrl(e.target.value)}
+                      className={`flex-1 px-3 py-2.5 rounded-xl text-xs font-mono transition-colors border ${
+                        darkMode
+                          ? 'bg-zinc-950 border-zinc-805 text-white focus:border-blue-500 focus:outline-none'
+                          : 'bg-zinc-50 border-zinc-300 text-zinc-950 focus:border-blue-500 focus:outline-none'
+                      }`}
+                    />
+                    <button
+                      onClick={handleSaveUrl}
+                      className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-mono text-[10px] uppercase font-bold tracking-widest rounded-xl transition-all cursor-pointer"
+                    >
+                      Save URL
+                    </button>
+                  </div>
+                </div>
+
+                {/* Action Buttons for Testing/Syncing */}
+                <div className="grid grid-cols-2 gap-3 mb-5">
+                  <button
+                    onClick={handleTestConnection}
+                    disabled={testSyncing || !adminUrl}
+                    className={`py-3 px-4 rounded-xl font-mono text-[9px] font-black uppercase tracking-widest border transition-colors flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 ${
+                      darkMode
+                        ? 'bg-zinc-950 hover:bg-zinc-900 border-zinc-800 text-zinc-350'
+                        : 'bg-zinc-100 hover:bg-zinc-150 border-zinc-200 text-zinc-700'
+                    }`}
+                  >
+                    {testSyncing ? 'Testing...' : 'Test Sync'}
+                  </button>
+                  <button
+                    onClick={handleSyncAll}
+                    disabled={syncAllStatus === 'syncing' || !adminUrl || localRegsCount === 0}
+                    className={`py-3 px-4 rounded-xl font-mono text-[9px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 text-white bg-indigo-600 hover:bg-indigo-750`}
+                  >
+                    {syncAllStatus === 'syncing' ? 'Syncing...' : `Sync All (${localRegsCount})`}
+                  </button>
+                </div>
+
+                {testSuccess !== null && (
+                  <div className={`p-3 rounded-xl border mb-5 flex items-start gap-2 text-xs font-mono ${
+                    testSuccess 
+                      ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500' 
+                      : 'bg-rose-500/10 border-rose-500/20 text-rose-555'
+                  }`}>
+                    {testSuccess ? (
+                      <>
+                        <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-500" />
+                        <span>Success! Connection tested. A mock user was synchronized successfully into your spreadsheet!</span>
+                      </>
+                    ) : (
+                      <>
+                        <AlertCircle className="w-4 h-4 shrink-0 text-rose-555" />
+                        <span>Connection Failed. Make sure your Web App is deployed as &quot;Anyone&quot; and has the POST method authorized.</span>
+                      </>
+                    )}
+                  </div>
+                )}
+
+                {syncAllStatus !== 'idle' && (
+                  <div className={`p-3 rounded-xl border mb-5 flex items-start gap-2 text-xs font-mono ${
+                    syncAllStatus === 'completed' 
+                      ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500' 
+                      : syncAllStatus === 'syncing'
+                        ? 'bg-amber-500/10 border-amber-500/20 text-amber-500'
+                        : 'bg-rose-500/10 border-rose-500/20 text-rose-500'
+                  }`}>
+                    {syncAllStatus === 'syncing' && (
+                      <>
+                        <RefreshCw className="w-4 h-4 shrink-0 animate-spin text-amber-500" />
+                        <span>Syncing all local entries into your sheet. Do not close this browser...</span>
+                      </>
+                    )}
+                    {syncAllStatus === 'completed' && (
+                      <>
+                        <CheckCircle2 className="w-4 h-4 shrink-0 animate-bounce text-emerald-500" />
+                        <span>All registrations flushed and synced with your Google Sheet!</span>
+                      </>
+                    )}
+                    {syncAllStatus === 'failed' && (
+                      <>
+                        <AlertCircle className="w-4 h-4 shrink-0 text-rose-500" />
+                        <span>A partial failure occurred during syncing. Check setup or network and retry.</span>
+                      </>
+                    )}
+                  </div>
+                )}
+
+                {/* Instructions and Code Block */}
+                <div className={`p-4 rounded-2xl border ${darkMode ? 'bg-zinc-950/80 border-indigo-500/10' : 'bg-slate-50 border-zinc-200'}`}>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[10px] font-mono font-black tracking-widest uppercase text-indigo-500 flex items-center gap-1.5">
+                      <HelpCircle className="w-3.5 h-3.5" />
+                      Copy Spreadsheet Script
+                    </span>
+                    <button
+                      onClick={handleCopyCode}
+                      className="flex items-center gap-1 font-mono text-[9px] font-bold uppercase tracking-wider text-blue-500 hover:text-blue-600 py-1 px-2 border border-blue-500/10 bg-blue-500/5 rounded-lg transition-all cursor-pointer"
+                    >
+                      <Copy className="w-3 h-3" />
+                      <span>{copiedCode ? 'Copied!' : 'Copy Code'}</span>
+                    </button>
+                  </div>
+                  <p className={`text-[10px] leading-relaxed mb-3 ${darkMode ? 'text-zinc-400' : 'text-zinc-650'}`}>
+                    Open your Google Sheet, select <span className="font-semibold text-zinc-400 dark:text-zinc-300">Extensions &gt; Apps Script</span>, replace any code inside with this copied script, and deploy it as a Web App to link your sheet in seconds.
+                  </p>
+                  <div className="max-h-[120px] overflow-y-auto rounded-lg border border-zinc-200 dark:border-zinc-805 p-2.5 bg-zinc-950 text-[10px] font-mono text-zinc-400 leading-normal">
+                    <pre>{GOOGLE_APPS_SCRIPT_CODE}</pre>
+                  </div>
+                </div>
+
+              </motion.div>
+            )}
+          </div>
+        )}
+
+      </div>
+    </section>
+  );
+}
