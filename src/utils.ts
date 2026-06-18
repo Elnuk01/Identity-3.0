@@ -8,7 +8,7 @@ const STORAGE_KEYS = {
 const BASE_REGISTRATION_COUNT = 312; // Realistic baseline registration counter
 
 export function getAppsScriptUrl(): string {
-  return 'https://script.google.com/macros/s/AKfycbzsSmZ3XxjWCgKs5awW4nwhqvuxTm8b534zsOjkgwhRLxD16ZxhWSlyLyhztdoIX5OpeA/exec';
+  return 'https://script.google.com/macros/s/AKfycbyLsBDJqakFjU7UIHgAvXIxH3SzTGf2rS6ua1w8ghSlCDc5SPlFTueroPfZw2dwcG378Q/exec';
 }
 
 export function setAppsScriptUrl(url: string) {
