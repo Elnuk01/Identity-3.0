@@ -33,9 +33,16 @@ export function saveRegistration(regData: Omit<Registration, 'id' | 'timestamp'>
   const padNum = String(nextNum).padStart(4, '0');
   const id = `TC-${padNum}`;
   
+  const emailVal = regData.email || regData.emailAddress || '';
   const newRegistration: Registration = {
     ...regData,
-    emailAddress: regData.email,
+    email: emailVal,
+    emailAddress: emailVal,
+    email_address: emailVal,
+    Email: emailVal,
+    EmailAddress: emailVal,
+    Email_Address: emailVal,
+    mail: emailVal,
     id,
     timestamp: new Date().toISOString()
   };
@@ -236,14 +243,25 @@ function doPost(e) {
                 '<strong>Date:</strong> August 1st, 2026<br/>' +
                 '<strong>Time:</strong> 10:00 AM (Please arrive 15 minutes early)<br/>' +
                 '<strong>Venue:</strong> Main Auditorium' +
+                '</p>' +
+            '</div>' +
+
+            '<div style="background-color: #e8f9ee; border: 1px solid #c7f3d6; border-radius: 12px; padding: 20px; text-align: center; margin: 25px 0;">' +
+              '<h4 style="margin: 0 0 8px; font-size: 16px; color: #075e54; font-weight: bold;">💬 Join the Official WhatsApp Group Chat</h4>' +
+              '<p style="margin: 0 0 16px; font-size: 13.5px; color: #128c7e; line-height: 1.5;">' +
+                'Get immediate event updates, coordinate transportation, and connect with other attendees before the event begins!' +
               '</p>' +
+              '<a href="https://chat.whatsapp.com/CibIPByTE89GOFfs6vhPql?s=cl&p=i&ilr=1" target="_blank"' +
+                 ' style="display: inline-block; background-color: #25d366; color: #ffffff; text-decoration: none; font-weight: bold; font-size: 14px; padding: 11px 22px; border-radius: 9999px; box-shadow: 0 3px 6px rgba(37,211,102,0.25);">' +
+                '👉 Click Here to Join Group Chat' +
+              '</a>' +
             '</div>' +
             
             '<p style="font-size: 14px; line-height: 1.6; color: #52525b; margin-top: 25px;">Please show your Digital Pass ID upon arrival to scan and verify your entry. If you signed up to volunteer on a team, a coordinator will reach out to you shortly with team briefings.</p>' +
             
             '<div style="border-top: 1px solid #e4e4e7; margin-top: 30px; padding-top: 15px; text-align: center; font-size: 12px; color: #a1a1aa;">' +
               '<p style="margin: 0 0 5px;">This is a transaction receipt confirming your youth conference entry.</p>' +
-              '<p style="margin: 0;">For immediate updates, join our official Teens Converge WhatsApp community.</p>' +
+              '<p style="margin: 0;">For immediate updates, join our official <a href="https://chat.whatsapp.com/CibIPByTE89GOFfs6vhPql?s=cl&p=i&ilr=1" target="_blank" style="color: #25d366; text-decoration: underline; font-weight: bold;">WhatsApp group chat here</a>.</p>' +
             '</div>' +
           '</div>';
           
