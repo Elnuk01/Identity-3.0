@@ -476,7 +476,12 @@ export default function RegistrationForm({ darkMode, onSuccess }: RegistrationFo
             </div>
 
             {/* Submit Action */}
-            <div className="pt-4">
+            <div className="pt-4 space-y-3.5">
+              <div className="bg-zinc-50 dark:bg-zinc-950/30 border border-zinc-150 dark:border-zinc-800/80 rounded-xl p-3.5 text-center">
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 font-sans leading-relaxed max-w-xs md:max-w-md mx-auto">
+                  💡 After clicking on the Register button, you will get a confirmation email and a WhatsApp link. Click on the link to join the WhatsApp community. <strong>Please check your spam or junk folder if you don't receive the email.</strong>
+                </p>
+              </div>
               <button
                 type="submit"
                 disabled={submitting}

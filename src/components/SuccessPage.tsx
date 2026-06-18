@@ -199,7 +199,7 @@ export default function SuccessPage({ registration, darkMode, onReset }: Success
             </span>
           </h2>
           <p className={`text-xs mt-2 max-w-md mx-auto leading-relaxed ${darkMode ? 'text-zinc-400' : 'text-zinc-650'}`}>
-            Your complimentary seat has been locked into the Teens Converge database. Make sure to download your gate pass image below.
+            Your complimentary seat has been locked into the Teens Converge database. A confirmation email has been dispatched. <strong>Please check your spam or junk folder if you don't receive it.</strong> Make sure to download your gate pass image below.
           </p>
         </div>
 
