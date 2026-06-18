@@ -8,11 +8,11 @@ const STORAGE_KEYS = {
 const BASE_REGISTRATION_COUNT = 312; // Realistic baseline registration counter
 
 export function getAppsScriptUrl(): string {
-  return localStorage.getItem(STORAGE_KEYS.APPS_SCRIPT_URL) || '';
+  return 'https://script.google.com/macros/s/AKfycbzsSmZ3XxjWCgKs5awW4nwhqvuxTm8b534zsOjkgwhRLxD16ZxhWSlyLyhztdoIX5OpeA/exec';
 }
 
 export function setAppsScriptUrl(url: string) {
-  localStorage.setItem(STORAGE_KEYS.APPS_SCRIPT_URL, url.trim());
+  // Hardcoded url is used instead
 }
 
 export function getSavedRegistrations(): Registration[] {
