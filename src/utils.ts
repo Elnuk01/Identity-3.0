@@ -28,10 +28,9 @@ export function getSavedRegistrations(): Registration[] {
 export function saveRegistration(regData: Omit<Registration, 'id' | 'timestamp'>): Registration {
   const currentRegs = getSavedRegistrations();
   
-  // Format id: TC-0001
-  const nextNum = currentRegs.length + 1;
-  const padNum = String(nextNum).padStart(4, '0');
-  const id = `TC-${padNum}`;
+  // Generate a random 4-digit ID (1000-9999) to ensure different browsers get unique IDs
+  const randomNum = Math.floor(1000 + Math.random() * 9000);
+  const id = `TC-${randomNum}`;
   
   const emailVal = regData.email || regData.emailAddress || '';
   const newRegistration: Registration = {
