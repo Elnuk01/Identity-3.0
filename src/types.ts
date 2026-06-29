@@ -13,5 +13,11 @@ export interface Registration {
   ageRange: string; // 10-14, 15-19, 20-24, 25-29, 30 and above
   sex: string; // Male, Female
   volunteerOptions: string[]; // usher, media, welfare, singer, instrumentalist, prayer
+  volunteerStatus?: string;
+  volunteerChoice?: string;
+  volunteer_status?: string;
+  volunteer?: string;
+  volunteering?: string;
+  role?: string;
   timestamp: string;
 }

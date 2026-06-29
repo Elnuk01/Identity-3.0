@@ -33,6 +33,9 @@ export function saveRegistration(regData: Omit<Registration, 'id' | 'timestamp'>
   const id = `TC-${randomNum}`;
   
   const emailVal = regData.email || regData.emailAddress || '';
+  const volVal = regData.volunteerOptions || [];
+  const volString = volVal.length > 0 ? volVal.join(', ') : 'Attendee';
+  
   const newRegistration: Registration = {
     ...regData,
     email: emailVal,
@@ -42,6 +45,12 @@ export function saveRegistration(regData: Omit<Registration, 'id' | 'timestamp'>
     EmailAddress: emailVal,
     Email_Address: emailVal,
     mail: emailVal,
+    volunteerStatus: volString,
+    volunteerChoice: volString,
+    volunteer_status: volString,
+    volunteer: volString,
+    volunteering: volString,
+    role: volString,
     id,
     timestamp: new Date().toISOString()
   };
@@ -125,7 +134,7 @@ function doPost(e) {
       churchName: ["churchname", "church", "churchassembly", "assembly"],
       ageRange: ["agerange", "age", "agegroup", "group"],
       sex: ["sex", "gender", "maleorfemale"],
-      volunteerOptions: ["volunteerstatus", "volunteerchoice", "volunteer", "role", "volunteering"],
+      volunteerOptions: ["volunteerstatuschoice", "volunteerstatus", "volunteerchoice", "volunteeroptions", "volunteer", "role", "volunteering", "volunteerteam", "volunteeringteam"],
       timestamp: ["registrationtimestamp", "timestamp", "date", "time", "submittedat"]
     };
     
@@ -144,9 +153,9 @@ function doPost(e) {
       churchName: data.churchName || "Not Specified",
       ageRange: data.ageRange || "N/A",
       sex: data.sex || "N/A",
-      volunteerOptions: (data.volunteerOptions && data.volunteerOptions.length > 0) 
+      volunteerOptions: (data.volunteerOptions && typeof data.volunteerOptions.join === 'function') 
         ? data.volunteerOptions.join(", ") 
-        : "Attendee",
+        : (data.volunteerOptions || data.volunteerStatus || data.volunteerChoice || data.volunteer_status || data.volunteer || data.volunteering || data.role || "Attendee"),
       timestamp: data.timestamp || new Date().toISOString()
     };
     
